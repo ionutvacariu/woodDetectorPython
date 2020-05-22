@@ -1,0 +1,1 @@
+docker run -v /Users/ionutvacariu/PycharmProjects/darknetFromPy/darknetW:/localdisk/datasets e14db987fa12
