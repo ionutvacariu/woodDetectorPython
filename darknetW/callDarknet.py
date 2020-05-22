@@ -107,9 +107,9 @@ def printImage(image, i):
     # release resources
     cv2.destroyAllWindows()
 
+
 i = 0;
 while True:
-
     image = cv2.imread("50.jpg")
     blob = cv2.dnn.blobFromImage(image, scale, (416, 416), (0, 0, 0), True, crop=False)
     net.setInput(blob)
