@@ -1,25 +1,16 @@
-import threading
-import time
+def substring_after(s, delim):
+    return s.partition(delim)[2]
 
-def f1():
-    print (threading.currentThread().getName(), 'Starting')
-    time.sleep(1)
-    print (threading.currentThread().getName(), 'Exiting')
 
-def f2():
-    print (threading.currentThread().getName(), 'Starting')
-    time.sleep(2)
-    print (threading.currentThread().getName(), 'Exiting')
+def substring_before(s, delim):
+    return s.partition(delim)[0]
 
-def f3():
-    print (threading.currentThread().getName(), 'Starting')
-    time.sleep(3)
-    print (threading.currentThread().getName(), 'Exiting')
 
-t1 = threading.Thread(target=f1) # use default name
-t2 = threading.Thread(name='f2', target=f2)
-t3 = threading.Thread(name='f3', target=f3)
+def substractVideoName(video_name):
+    first = substring_after(video_name, "detectedWood/")
+    second = substring_before(first, ".avi")
+    return second
 
-t1.start()
-t2.start()
-t3.start()
+
+video_name = "detectedWood/cutout_wood_withTime1590170606.0705101.avi"
+print(substractVideoName(video_name))

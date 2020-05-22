@@ -18,14 +18,15 @@ woodClasses = ["wood detector"]
 font = cv2.FONT_HERSHEY_PLAIN
 starting_time = time.time()
 frame_id = 0
-net = cv2.dnn.readNet("wood.weights", "wood.cfg")
+net = cv2.dnn.readNet("../weights/wood.weights", "../weights/wood.cfg")
 
 colors = np.random.uniform(0, 255, size=(len(woodClasses), 3))
 
 layer_names = net.getLayerNames()
 outputlayers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 
-cap = cv2.VideoCapture("VID_20200520_185440.mp4")
+# cap = cv2.VideoCapture("VID_20200520_185440.mp4")
+cap = cv2.VideoCapture("wood3.mov")
 # cap = cv2.VideoCapture(0)  # 0 for 1st webcam
 
 width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)

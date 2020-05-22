@@ -9,37 +9,27 @@ import cv2
 import numpy as np
 import time
 
-woodClasses = ["plate"]
+plateClasses = ["plate"]
 
 font = cv2.FONT_HERSHEY_PLAIN
 starting_time = time.time()
-frame_id = 0
-net = cv2.dnn.readNet("plate_detection_final.weights", "plate_recognition.cfg")
+net = cv2.dnn.readNet("../weights/plate_detection_final.weights", "../weights/plate_recognition.cfg")
 
-colors = np.random.uniform(0, 255, size=(len(woodClasses), 3))
+colors = np.random.uniform(0, 255, size=(len(plateClasses), 3))
 
 layer_names = net.getLayerNames()
 outputlayers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 
-cap = cv2.VideoCapture("plate_test.mov")
-# cap = cv2.VideoCapture("http://192.168.0.108:8080/video")
-# cap = cv2.VideoCapture(0)  # 0 for 1st webcam
-
-width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-
-height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 width = int(350)
 height = int(100)
 video_writer = cv2.VideoWriter()
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 
-dim = (width, height)
+dimOfResizedPlatesImage = (width, height)
 
-
-# resize image
 
 def detect():
-    global confidence, w, h, x, y
+    confidences = []
     for out in outs:
         for detection in out:
             scores = detection[5:]
@@ -51,8 +41,6 @@ def detect():
                 center_y = int(detection[1] * height)
                 w = int(detection[2] * width)
                 h = int(detection[3] * height)
-
-                # cv2.circle(img,(center_x,center_y),10,(0,255,0),2)
                 # rectangle co-ordinaters
                 x = int(center_x - w / 2)
                 y = int(center_y - h / 2)
@@ -62,40 +50,52 @@ def detect():
                 confidences.append(
                     float(confidence))  # how confidence was that object detected and show that percentage
                 class_ids.append(class_id)  # name of the object tha was detected
+    return confidences, boxes
 
 
-def printImage(videoName, maxConfidence):
-    global x, y, w, h, confidence
+def addDetectionsToImage(videoName, maxConfidence, confidences, boxes, frame, indexes):
+    currentConfidence = -1
     for i in range(len(boxes)):
         if i in indexes:
             x, y, w, h = boxes[i]
-            label = str(woodClasses[class_ids[i]])
+            label = str(plateClasses[class_ids[i]])
             confidence = confidences[i]
             color = colors[class_ids[i]]
             cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
             crop_img = frame[y:y + h, x:x + w]
-            resized = cv2.resize(crop_img, dim, interpolation=cv2.INTER_AREA)
+            resized = cv2.resize(crop_img, dimOfResizedPlatesImage, interpolation=cv2.INTER_AREA)
             currentConfidence = round(confidence, 2)
             cv2.putText(frame, label + " " + str(currentConfidence), (x, y + 30), font, 1, (255, 255, 255), 2)
-            frameR = cv2.resize(crop_img, dim, interpolation=cv2.INTER_AREA)
+            # frameR = cv2.resize(crop_img, dimOfResizedPlatesImage, interpolation=cv2.INTER_AREA)
             video_writer.write(resized)
             print("detected plate on video " + videoName + " Confidence : " + str(
-                currentConfidence) + "max confidence till now" + str(maxConfidence))
-            if currentConfidence > maxConfidence:
-                cv2.imwrite("detectedPlates/img/detectedPlate" + str(time.time()) + "conf" + str(confidence) + ".jpg",
-                            resized)
-                maxConfidence = currentConfidence
+                confidence) + "max confidence till now" + str(maxConfidence))
 
-    # cv2.imshow("Image", frame)
-    return maxConfidence
+            if currentConfidence > maxConfidence:
+                cv2.imwrite("detectedPlates/img/detectedPlate" + videoName + "conf" + str(confidence) + ".jpg",
+                            resized)
+
+                maxConfidence = currentConfidence
+    return maxConfidence, currentConfidence
 
 
 def substring_after(s, delim):
     return s.partition(delim)[2]
 
 
+def substring_before(s, delim):
+    return s.partition(delim)[0]
+
+
+def substractVideoName(video_name):
+    first = substring_after(video_name, "detectedWood/")
+    second = substring_before(first, ".avi")
+    return second
+
+
 def startPlateDetection(wood_detected_video):
-    global frame, height, width, outs, class_ids, confidences, boxes, indexes, frame_id, maxConfidence
+    frame_id = 0
+    global height, width, outs, class_ids, boxes, maxConfidence
     print("recieved args: " + wood_detected_video)
     detectedWoodVideo = 'detectedPlates/detectedPlates' + str(time.time()) + '.avi'
     video_writer.open(detectedWoodVideo, fourcc, 60.0,
@@ -104,9 +104,11 @@ def startPlateDetection(wood_detected_video):
     cap = cv2.VideoCapture(wood_detected_video)
     opened = False;
     maxConfidence = 0;
+    videoName = substractVideoName(wood_detected_video)
     while cap.isOpened():
         ret, frame = cap.read()  #
         if ret:
+            cv2.imshow("Image", frame)
             opened = True
             # print("no ca facem afisare")
             frame_id += 1
@@ -116,17 +118,15 @@ def startPlateDetection(wood_detected_video):
 
             net.setInput(blob)
             outs = net.forward(outputlayers)
-            # print(outs[1])
 
             # Showing info on screen/ get confidence score of algorithm in detecting an object in blob
             class_ids = []
-            confidences = []
             boxes = []
-            detect()
-
+            (confidences, boxes) = detect()
             indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.4, 0.6)
-
-            maxConfidence = printImage(wood_detected_video, maxConfidence)
+            maxConfidence, confidence = addDetectionsToImage(videoName, maxConfidence, confidences, boxes,
+                                                             frame,
+                                                             indexes)
 
             key = cv2.waitKey(1)  # wait 1ms the loop will start again and we will process the next frame
             if key == 27:  # esc key stops the process
@@ -138,7 +138,6 @@ def startPlateDetection(wood_detected_video):
                 print("can't open " + wood_detected_video)
             break;
     cap.release()
-    # print("Thread: " + str(threading.currentThread().ident()))
     video_writer.release()
     print("max confidence: " + str(maxConfidence))
     if not maxConfidence > 0:  # if max confidence > 0, we detected at least 1 frame
@@ -147,6 +146,7 @@ def startPlateDetection(wood_detected_video):
     cv2.destroyAllWindows()
 
 
+# startPlateDetection("detectedWood/plates2.mp4")
 class ExampleHandler(FileSystemEventHandler):
     def on_created(self, event):  # when file is created
         # do something, eg. call your function to process the image
