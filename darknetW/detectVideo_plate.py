@@ -1,13 +1,16 @@
 import sys, os
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-import time
 import threading
+import shutil
 
 sys.path.append(os.path.join(os.getcwd(), 'python/'))
 import cv2
 import numpy as np
 import time
+
+TEMP_DETECTED_WOOD_DIRECTORY = 'detectedPlates/temp_img'
+DETECTED_WOOD_DIRECTORY = 'detectedPlates/img'
 
 plateClasses = ["plate"]
 
@@ -28,6 +31,13 @@ fourcc = cv2.VideoWriter_fourcc(*'XVID')
 dimOfResizedPlatesImage = (width, height)
 
 
+def moveRemaningFiles(videoName):
+    files = os.listdir(TEMP_DETECTED_WOOD_DIRECTORY)
+    for f in files:
+        if f.__contains__(videoName):
+            shutil.move(TEMP_DETECTED_WOOD_DIRECTORY + "/" + f, DETECTED_WOOD_DIRECTORY)
+
+
 def detect():
     confidences = []
     for out in outs:
@@ -35,7 +45,7 @@ def detect():
             scores = detection[5:]
             class_id = np.argmax(scores)
             confidence = scores[class_id]
-            if confidence > 0.3:
+            if confidence > 0.4:
                 # onject detected
                 center_x = int(detection[0] * width)
                 center_y = int(detection[1] * height)
@@ -60,23 +70,28 @@ def addDetectionsToImage(videoName, maxConfidence, confidences, boxes, frame, in
             x, y, w, h = boxes[i]
             label = str(plateClasses[class_ids[i]])
             confidence = confidences[i]
+            currentConfidence = round(confidence, 2)
             color = colors[class_ids[i]]
-            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
             crop_img = frame[y:y + h, x:x + w]
             resized = cv2.resize(crop_img, dimOfResizedPlatesImage, interpolation=cv2.INTER_AREA)
-            currentConfidence = round(confidence, 2)
+            maxConfidence = saveImageWithMaxConfidence(currentConfidence, frame, maxConfidence, resized, videoName)
+            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
             cv2.putText(frame, label + " " + str(currentConfidence), (x, y + 30), font, 1, (255, 255, 255), 2)
             # frameR = cv2.resize(crop_img, dimOfResizedPlatesImage, interpolation=cv2.INTER_AREA)
             video_writer.write(resized)
             print("detected plate on video " + videoName + " Confidence : " + str(
                 confidence) + "max confidence till now" + str(maxConfidence))
-
-            if currentConfidence > maxConfidence:
-                cv2.imwrite("detectedPlates/img/detectedPlate" + videoName + "conf" + str(confidence) + ".jpg",
-                            resized)
-
-                maxConfidence = currentConfidence
     return maxConfidence, currentConfidence
+
+
+def saveImageWithMaxConfidence(currentConfidence, frame_back, maxConfidence, resized, videoName):
+    if currentConfidence > maxConfidence:
+        cv2.imwrite("detectedPlates/temp_img/detectedPlate" + videoName + "conf" + ".jpg",
+                    resized)
+        cv2.imwrite("detectedPlates/temp_img/detectedPlate" + videoName + "conf" + "_large.jpg",
+                    frame_back)
+        maxConfidence = currentConfidence
+    return maxConfidence
 
 
 def substring_after(s, delim):
@@ -108,12 +123,13 @@ def startPlateDetection(wood_detected_video):
     while cap.isOpened():
         ret, frame = cap.read()  #
         if ret:
-            cv2.imshow("Image", frame)
+            # cv2.imshow("Image", frame)
             opened = True
             # print("no ca facem afisare")
             frame_id += 1
             height, width, channels = frame.shape
             # detecting objects
+            # https://github.com/arunponnusamy/object-detection-opencv/issues/5  --  0.00392  -> 1/255
             blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), (0, 0, 0), True, crop=False)  # reduce 416 to 320
 
             net.setInput(blob)
@@ -137,6 +153,7 @@ def startPlateDetection(wood_detected_video):
             else:
                 print("can't open " + wood_detected_video)
             break;
+    moveRemaningFiles(videoName)
     cap.release()
     video_writer.release()
     print("max confidence: " + str(maxConfidence))

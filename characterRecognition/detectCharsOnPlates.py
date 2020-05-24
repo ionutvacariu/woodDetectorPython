@@ -1,9 +1,14 @@
 import sys, os
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 sys.path.append(os.path.join(os.getcwd(), 'python/'))
 import cv2
 import numpy as np
 import time
+import threading
+
+from characterRecognition.kafka_producer_plate_number import sendMess
 
 classesFile = "coco.names";
 classes = None
@@ -13,32 +18,20 @@ with open(classesFile, 'rt') as f:
 font = cv2.FONT_HERSHEY_PLAIN
 starting_time = time.time()
 frame_id = 0
-net = cv2.dnn.readNet("char.weights", "char.cfg")
+net = cv2.dnn.readNet("../weights/char.weights", "char.cfg")
 
 colors = np.random.uniform(0, 255, size=(len(woodClasses), 3))
 
 layer_names = net.getLayerNames()
 outputlayers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 
-img = cv2.imread("imageBre1589040703.66871.jpg")
-blob = cv2.dnn.blobFromImage(img, 0.00392, (320, 320), (0, 0, 0), True, crop=False)  # reduce 416 to 320
 
-net.setInput(blob)
-outs = net.forward(outputlayers)
-
-width = int(350)
-height = int(100)
-
-class_ids = []
-confidences = []
-boxes = []
-
-licensePlate = ""
-
-
-def findInDetection():
+def findInDetection(outs1, width, height):
     global confidence, w, h, x, y, indexes
-    for out in outs:
+    class_ids = []
+    confidences = []
+    boxes = []
+    for out in outs1:
         for detection in out:
             scores = detection[5:]
             class_id = np.argmax(scores)
@@ -59,30 +52,87 @@ def findInDetection():
                 boxes.append([x, y, w, h])  # put all rectangle areas
                 confidences.append(
                     float(confidence))  # how confidence was that object detected and show that percentage
-                class_ids.append(class_id)  # name of the object tha was detected
+                class_ids.append([class_id, x])  # name of the object tha was detected
     indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.4, 0.6)
+    return confidences, boxes, class_ids
 
 
-def printDetectionAndSave():
-    global x, y, w, h, confidence, licensePlate
-    for i in range(len(boxes)):
+def printDetectionAndSave(confidences1, boxes, class_ids, img1):
+    global x, y, w, h, confidence
+    ordered_boxes, ordered_cls = orderFromLeftToRight(boxes, class_ids)
+    licensePlate = "";
+    for i in range(len(ordered_boxes)):
         if i in indexes:
-            x, y, w, h = boxes[i]
-            label = str(woodClasses[class_ids[i]])
-            confidence = confidences[i]
-            color = colors[class_ids[i]]
+            x, y, w, h = ordered_boxes[i]
+            cls_id, x = ordered_cls[i]
+            label = str(woodClasses[cls_id])
+            confidence = confidences1[i]
+            color = colors[cls_id]
             # print(label)
             licensePlate += label
-            cv2.rectangle(img, (x, y), (x + w, y + h), color, 2)
-            cv2.putText(img, label + " " + str(round(confidence, 2)), (x, y + 30), font, 1, (255, 255, 255), 2)
-            cv2.imwrite("result_character_plate.jpg", img)
-    cv2.imshow("Image", img)
+            cv2.rectangle(img1, (x, y), (x + w, y + h), color, 2)
+            cv2.putText(img1, label + " " + str(round(confidence, 2)), (x, y + 30), font, 1, (255, 255, 255), 2)
+            cv2.imwrite("result_character_plate.jpg", img1)
+
+    return licensePlate;
 
 
-def start():
-    findInDetection()
-    printDetectionAndSave()
+def orderFromLeftToRight(boxes, class_ids):
+    ordered_boxes = sorted(boxes, key=lambda tup: tup[0])
+    ordered_cls = sorted(class_ids, key=lambda tup: tup[1])
+    return ordered_boxes, ordered_cls
+
+
+def start(image):
+    img = cv2.imread(image)
+
+    width = int(1000)
+    height = int(100)
+    dimOfResizedPlatesImage = (width, height)
+
+    img = cv2.resize(img, dimOfResizedPlatesImage, interpolation=cv2.INTER_AREA)
+
+    blob = cv2.dnn.blobFromImage(img, 0.00392, (416, 416), (0, 0, 0), True, crop=False)  # reduce 416 to 320
+    net.setInput(blob)
+    outs = net.forward(outputlayers)
+    confidences, boxes, class_ids = findInDetection(outs, width, height)
+    licensePlate = printDetectionAndSave(confidences, boxes, class_ids, img)
+    if len(licensePlate) == 0:
+        licensePlate = "unidentified"
     print("numar gasit " + licensePlate)
+    sendMess(licensePlate, image)
 
 
-start()
+# start("inmatriculare/4.jpg")
+
+from characterRecognition.mimetypesUtilities import IMAGE
+
+
+class ExampleHandler(FileSystemEventHandler):
+    def on_created(self, event):  # when file is created
+        # do something, eg. call your function to process the image
+        pathToWoodVideo = event.src_path
+        # time.sleep(15)
+        filename, file_extension = os.path.splitext(pathToWoodVideo)
+        if IMAGE.__contains__(file_extension) and not filename.__contains__("_large"):
+            print("Got event for file %s" % pathToWoodVideo)
+            t = threading.Thread(target=start(pathToWoodVideo),
+                                 name="startingPlateDetection")
+            t.daemon = True
+            t.start()
+
+
+observer = Observer()
+event_handler = ExampleHandler()  # create event handler
+# set observer to use created handler in directory
+observer.schedule(event_handler, path='../darknetW/detectedPlates/img')
+observer.start()
+
+# sleep until keyboard interrupt, then stop + rejoin the observer
+try:
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    observer.stop()
+
+observer.join()
