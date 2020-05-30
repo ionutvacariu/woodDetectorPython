@@ -25,25 +25,27 @@ colors = np.random.uniform(0, 255, size=(len(woodClasses), 3))
 layer_names = net.getLayerNames()
 outputlayers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 
-# cap = cv2.VideoCapture("VID_20200520_185440.mp4")
-cap = cv2.VideoCapture("wood3.mov")
+# cap = cv2.VideoCapture("wood4.mp4")
+cap = cv2.VideoCapture("wood8.mov")
 # cap = cv2.VideoCapture(0)  # 0 for 1st webcam
 
 width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
 
 height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+print("width_of_video " + str(width) + "height_of_vide" + str(height))
 
 out_video = cv2.VideoWriter()
-fourcc = cv2.VideoWriter_fourcc(*'XVID')
+# fourcc = cv2.VideoWriter_fourcc(*'XVID')
+
+# capSize = (1028,720) # this is the size of my source video
+fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')  # note the lower case
+
+# success = self.vout.open('output.mov',fourcc,30,capSize,True)
+
+
 # out_video.open('cutout_wood ' + str(time.time()) + '.avi', fourcc, 60.0, (int(width), int(height)), True)
 
 isStarted = False
-
-
-# width = int(800)
-# height = int(500)
-#
-# dim = (width, height)
 
 
 def findInDetection():
@@ -53,7 +55,7 @@ def findInDetection():
             scores = detection[5:]
             class_id = np.argmax(scores)
             confidence = scores[class_id]
-            if confidence > 0.3:
+            if confidence > 0.5:
                 # onject detected
                 center_x = int(detection[0] * width)
                 center_y = int(detection[1] * height)
@@ -83,14 +85,14 @@ def printDetectionAndSave():
                 isStarted = True
                 out_video_withtime = cv2.VideoWriter()
 
-                detectedWoodVideo = CUTOUT_WOOD_WITH_TIME + str(time.time()) + '.avi'
+                detectedWoodVideo = CUTOUT_WOOD_WITH_TIME + str(time.time()) + '.mov'
                 print("created video " + detectedWoodVideo)
-                out_video_withtime.open(TEMP_DETECTED_WOOD_DIRECTORY + detectedWoodVideo, fourcc, 60.0,
+                out_video_withtime.open(TEMP_DETECTED_WOOD_DIRECTORY + detectedWoodVideo, fourcc, 30.0,
                                         (int(width), int(height)),
                                         True)
 
             start = time.time() - timer_start
-            if start > 30:
+            if start > 150:
                 print("start detecting plate on video " + detectedWoodVideo)
                 isStarted = False
                 out_video_withtime.release()
@@ -101,11 +103,11 @@ def printDetectionAndSave():
             label = str(woodClasses[class_ids[i]])
             confidence = confidences[i]
             color = colors[class_ids[i]]
+            out_video_withtime.write(frame)
             cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
             cv2.putText(frame, label + " " + str(round(confidence, 2)), (x, y + 30), font, 1, (255, 255, 255), 2)
-            out_video_withtime.write(frame)
     # frameR = cv2.resize(frame, dim, interpolation=cv2.INTER_AREA)
-    cv2.imshow("ImageWOOD", frame)
+    # cv2.imshow("ImageWOOD", frame)
 
 
 def startDetector():
@@ -117,7 +119,7 @@ def startDetector():
 
             # height, width, channels = frame.shape
             # detecting objects
-            blob = cv2.dnn.blobFromImage(frame, 0.00392, (320, 320), (0, 0, 0), True,
+            blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), (0, 0, 0), True,
                                          crop=False)  # reduce 416 to 320
 
             net.setInput(blob)

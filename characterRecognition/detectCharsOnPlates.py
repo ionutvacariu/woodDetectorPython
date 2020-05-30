@@ -18,7 +18,8 @@ with open(classesFile, 'rt') as f:
 font = cv2.FONT_HERSHEY_PLAIN
 starting_time = time.time()
 frame_id = 0
-net = cv2.dnn.readNet("../weights/char.weights", "char.cfg")
+
+net = cv2.dnn.readNet("char_final.weights", "char.cfg")
 
 colors = np.random.uniform(0, 255, size=(len(woodClasses), 3))
 

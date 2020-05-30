@@ -4,10 +4,13 @@ from watchdog.events import FileSystemEventHandler
 import threading
 import shutil
 
+minimum_brightness_level = 58.5
+
 sys.path.append(os.path.join(os.getcwd(), 'python/'))
 import cv2
 import numpy as np
 import time
+from characterRecognition.brightnessUtility import adjust_brightness, getBrightnessLevel
 
 TEMP_DETECTED_WOOD_DIRECTORY = 'detectedPlates/temp_img'
 DETECTED_WOOD_DIRECTORY = 'detectedPlates/img'
@@ -25,17 +28,20 @@ outputlayers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 
 width = int(350)
 height = int(100)
+dimOfResizedPlatesImage = (width, height)
 video_writer = cv2.VideoWriter()
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
-
-dimOfResizedPlatesImage = (width, height)
 
 
 def moveRemaningFiles(videoName):
     files = os.listdir(TEMP_DETECTED_WOOD_DIRECTORY)
     for f in files:
         if f.__contains__(videoName):
-            shutil.move(TEMP_DETECTED_WOOD_DIRECTORY + "/" + f, DETECTED_WOOD_DIRECTORY)
+            file_to_move = TEMP_DETECTED_WOOD_DIRECTORY + "/" + f
+            moved_file = DETECTED_WOOD_DIRECTORY + "/" + f
+            if os.path.exists(moved_file):
+                os.rename(moved_file, moved_file + "old_" + str(time.time()) + ".jpg")
+            shutil.move(file_to_move, DETECTED_WOOD_DIRECTORY)
 
 
 def detect():
@@ -49,8 +55,8 @@ def detect():
                 # onject detected
                 center_x = int(detection[0] * width)
                 center_y = int(detection[1] * height)
-                w = int(detection[2] * width)
-                h = int(detection[3] * height)
+                w = int(detection[2] * width) + 15
+                h = int(detection[3] * height) + 15
                 # rectangle co-ordinaters
                 x = int(center_x - w / 2)
                 y = int(center_y - h / 2)
@@ -81,13 +87,19 @@ def addDetectionsToImage(videoName, maxConfidence, confidences, boxes, frame, in
             video_writer.write(resized)
             print("detected plate on video " + videoName + " Confidence : " + str(
                 confidence) + "max confidence till now" + str(maxConfidence))
+    # cv2.imshow("Image", frame)
     return maxConfidence, currentConfidence
 
 
 def saveImageWithMaxConfidence(currentConfidence, frame_back, maxConfidence, resized, videoName):
     if currentConfidence > maxConfidence:
-        cv2.imwrite("detectedPlates/temp_img/detectedPlate" + videoName + "conf" + ".jpg",
-                    resized)
+        s = str(currentConfidence)
+        jpg = "detectedPlates/temp_img/detectedPlate" + videoName + "conf" + ".jpg"
+        cv2.imwrite(jpg, resized)
+        if getBrightnessLevel(jpg) < minimum_brightness_level:
+            adjusted = adjust_brightness(jpg, 2)
+            os.remove(jpg)
+            adjusted.save(jpg);
         cv2.imwrite("detectedPlates/temp_img/detectedPlate" + videoName + "conf" + "_large.jpg",
                     frame_back)
         maxConfidence = currentConfidence
@@ -117,6 +129,11 @@ def startPlateDetection(wood_detected_video):
                       (int(width), int(height)),
                       True)
     cap = cv2.VideoCapture(wood_detected_video)
+    width_of_video = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+
+    height_of_vide = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    print("width_of_video " + str(width_of_video) + "height_of_vide" + str(height_of_vide))
+
     opened = False;
     maxConfidence = 0;
     videoName = substractVideoName(wood_detected_video)
@@ -154,21 +171,23 @@ def startPlateDetection(wood_detected_video):
                 print("can't open " + wood_detected_video)
             break;
     moveRemaningFiles(videoName)
-    cap.release()
     video_writer.release()
     print("max confidence: " + str(maxConfidence))
     if not maxConfidence > 0:  # if max confidence > 0, we detected at least 1 frame
         os.remove(detectedWoodVideo)
         print("removed " + detectedWoodVideo)
+    cap.release()
     cv2.destroyAllWindows()
 
 
-# startPlateDetection("detectedWood/plates2.mp4")
+# startPlateDetection("detectedWood/wood8.mov")
+
+
 class ExampleHandler(FileSystemEventHandler):
     def on_created(self, event):  # when file is created
         # do something, eg. call your function to process the image
         pathToWoodVideo = event.src_path
-        # time.sleep(15)
+        time.sleep(5)
         print("Got event for file %s" % pathToWoodVideo)
         t = threading.Thread(target=startPlateDetection(pathToWoodVideo),
                              name="startingPlateDetection")
