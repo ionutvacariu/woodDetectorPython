@@ -13,3 +13,10 @@ def getBrightnessLevel(im_file):
     im = Image.open(im_file).convert('L')
     stat = ImageStat.Stat(im)
     return stat.mean[0]
+
+
+def enhance(image):
+    im = Image.open(image)
+    enhancer = ImageEnhance.Contrast(im)
+    enhanced_im = enhancer.enhance(3.0)
+    enhanced_im.save(image)

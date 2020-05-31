@@ -26,7 +26,7 @@ layer_names = net.getLayerNames()
 outputlayers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 
 # cap = cv2.VideoCapture("wood4.mp4")
-cap = cv2.VideoCapture("wood8.mov")
+cap = cv2.VideoCapture("wood11.mov")
 # cap = cv2.VideoCapture(0)  # 0 for 1st webcam
 
 width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)

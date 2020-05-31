@@ -4,13 +4,13 @@ from watchdog.events import FileSystemEventHandler
 import threading
 import shutil
 
-minimum_brightness_level = 58.5
+minimum_brightness_level = 80.5
 
 sys.path.append(os.path.join(os.getcwd(), 'python/'))
 import cv2
 import numpy as np
 import time
-from characterRecognition.brightnessUtility import adjust_brightness, getBrightnessLevel
+from characterRecognition.brightnessUtility import adjust_brightness, getBrightnessLevel, enhance
 
 TEMP_DETECTED_WOOD_DIRECTORY = 'detectedPlates/temp_img'
 DETECTED_WOOD_DIRECTORY = 'detectedPlates/img'
@@ -87,7 +87,7 @@ def addDetectionsToImage(videoName, maxConfidence, confidences, boxes, frame, in
             video_writer.write(resized)
             print("detected plate on video " + videoName + " Confidence : " + str(
                 confidence) + "max confidence till now" + str(maxConfidence))
-    # cv2.imshow("Image", frame)
+    #cv2.imshow("Image", frame)
     return maxConfidence, currentConfidence
 
 
@@ -96,10 +96,13 @@ def saveImageWithMaxConfidence(currentConfidence, frame_back, maxConfidence, res
         s = str(currentConfidence)
         jpg = "detectedPlates/temp_img/detectedPlate" + videoName + "conf" + ".jpg"
         cv2.imwrite(jpg, resized)
-        if getBrightnessLevel(jpg) < minimum_brightness_level:
+        level = getBrightnessLevel(jpg)
+        enhance(jpg)
+        print("brightness level: " + str(level))
+        if level < 80:
             adjusted = adjust_brightness(jpg, 2)
             os.remove(jpg)
-            adjusted.save(jpg);
+            adjusted.save(jpg)
         cv2.imwrite("detectedPlates/temp_img/detectedPlate" + videoName + "conf" + "_large.jpg",
                     frame_back)
         maxConfidence = currentConfidence
@@ -176,11 +179,12 @@ def startPlateDetection(wood_detected_video):
     if not maxConfidence > 0:  # if max confidence > 0, we detected at least 1 frame
         os.remove(detectedWoodVideo)
         print("removed " + detectedWoodVideo)
+    print("DONE")
     cap.release()
     cv2.destroyAllWindows()
 
 
-# startPlateDetection("detectedWood/wood8.mov")
+#startPlateDetection("detectedWood/wood11.mov")
 
 
 class ExampleHandler(FileSystemEventHandler):

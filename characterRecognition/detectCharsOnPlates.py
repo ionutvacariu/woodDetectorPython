@@ -19,8 +19,9 @@ font = cv2.FONT_HERSHEY_PLAIN
 starting_time = time.time()
 frame_id = 0
 
-net = cv2.dnn.readNet("char_final.weights", "char.cfg")
+#net = cv2.dnn.readNet("char_final.weights", "char.cfg")
 
+net = cv2.dnn.readNet("char_yolov3_final_yolov4.weights", "char.cfg")
 colors = np.random.uniform(0, 255, size=(len(woodClasses), 3))
 
 layer_names = net.getLayerNames()
@@ -37,7 +38,7 @@ def findInDetection(outs1, width, height):
             scores = detection[5:]
             class_id = np.argmax(scores)
             confidence = scores[class_id]
-            if confidence > 0.3:
+            if confidence > 0.5:
                 # onject detected
                 center_x = int(detection[0] * width)
                 center_y = int(detection[1] * height)
@@ -87,7 +88,7 @@ def orderFromLeftToRight(boxes, class_ids):
 def start(image):
     img = cv2.imread(image)
 
-    width = int(1000)
+    width = int(400)
     height = int(100)
     dimOfResizedPlatesImage = (width, height)
 
