@@ -1,5 +1,7 @@
 import sys, os
 
+import imutils as imutils
+
 CUTOUT_WOOD_WITH_TIME = '/cutout_wood_withTime'
 TEMP_DETECTED_WOOD_DIRECTORY = 'tempDetectedWood'
 DETECTED_WOOD_DIRECTORY = 'detectedWood'
@@ -26,9 +28,10 @@ layer_names = net.getLayerNames()
 outputlayers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 
 # cap = cv2.VideoCapture("wood4.mp4")
-cap = cv2.VideoCapture("wood11.mov")
-# cap = cv2.VideoCapture(0)  # 0 for 1st webcam
+cap = cv2.VideoCapture("VID_20200612_204420.mp4")
+#cap = cv2.VideoCapture("20200606_133924.mp4")
 
+# cap = cv2.VideoCapture(0)  # 0 for 1st webcam
 width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
 
 height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
@@ -55,7 +58,7 @@ def findInDetection():
             scores = detection[5:]
             class_id = np.argmax(scores)
             confidence = scores[class_id]
-            if confidence > 0.5:
+            if confidence > 0.8:
                 # onject detected
                 center_x = int(detection[0] * width)
                 center_y = int(detection[1] * height)
@@ -106,8 +109,24 @@ def printDetectionAndSave():
             out_video_withtime.write(frame)
             cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
             cv2.putText(frame, label + " " + str(round(confidence, 2)), (x, y + 30), font, 1, (255, 255, 255), 2)
+            print(str(confidence))
+
+    cv2.imshow("ImageWOOD", frame)
     # frameR = cv2.resize(frame, dim, interpolation=cv2.INTER_AREA)
-    # cv2.imshow("ImageWOOD", frame)
+
+
+def rotateImage(image, angle):
+    if hasattr(image, 'shape'):
+        image_center = tuple(np.array(image.shape) / 2)
+        shape = image.shape
+    elif hasattr(image, 'width') and hasattr(image, 'height'):
+        image_center = (image.width / 2, image.height / 2)
+        shape = np.array((image.width, image.height))
+    else:
+        raise Exception('Unable to acquire dimensions of image for type %s.' % (type(image),))
+    rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
+    result = cv2.warpAffine(image, rot_mat, shape, flags=cv2.INTER_LINEAR)
+    return result
 
 
 def startDetector():
@@ -116,7 +135,8 @@ def startDetector():
         ret, frame = cap.read()  #
         if ret:
             frame_id += 1
-
+            if height < width:
+                frame = imutils.rotate(frame, -90)
             # height, width, channels = frame.shape
             # detecting objects
             blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), (0, 0, 0), True,

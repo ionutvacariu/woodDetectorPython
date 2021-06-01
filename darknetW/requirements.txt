@@ -2,3 +2,7 @@ numpy==1.18.3
 opencv-python==4.2.0.34
 watchdog==0.10.2
 confluent-kafka==1.4.2
+pillow==7.1.2
+confluent_kafka==1.4.2
+yolo34py==0.1rc12
+imutils==0.5.3

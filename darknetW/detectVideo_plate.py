@@ -4,7 +4,7 @@ from watchdog.events import FileSystemEventHandler
 import threading
 import shutil
 
-minimum_brightness_level = 80.5
+minimum_brightness_level = 140
 
 sys.path.append(os.path.join(os.getcwd(), 'python/'))
 import cv2
@@ -97,9 +97,9 @@ def saveImageWithMaxConfidence(currentConfidence, frame_back, maxConfidence, res
         jpg = "detectedPlates/temp_img/detectedPlate" + videoName + "conf" + ".jpg"
         cv2.imwrite(jpg, resized)
         level = getBrightnessLevel(jpg)
-        enhance(jpg)
         print("brightness level: " + str(level))
-        if level < 80:
+        if level < minimum_brightness_level:
+            #enhance(jpg)
             adjusted = adjust_brightness(jpg, 2)
             os.remove(jpg)
             adjusted.save(jpg)

@@ -19,9 +19,9 @@ font = cv2.FONT_HERSHEY_PLAIN
 starting_time = time.time()
 frame_id = 0
 
-#net = cv2.dnn.readNet("char_final.weights", "char.cfg")
+net = cv2.dnn.readNet("char_final.weights", "char.cfg")
 
-net = cv2.dnn.readNet("char_yolov3_final_yolov4.weights", "char.cfg")
+#net = cv2.dnn.readNet("char_yolov3_final_yolov4.weights", "char.cfg")
 colors = np.random.uniform(0, 255, size=(len(woodClasses), 3))
 
 layer_names = net.getLayerNames()
@@ -102,7 +102,7 @@ def start(image):
     if len(licensePlate) == 0:
         licensePlate = "unidentified"
     print("numar gasit " + licensePlate)
-    sendMess(licensePlate, image)
+    #sendMess(licensePlate, image)
 
 
 # start("inmatriculare/4.jpg")
