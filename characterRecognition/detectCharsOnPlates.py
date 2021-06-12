@@ -19,9 +19,10 @@ font = cv2.FONT_HERSHEY_PLAIN
 starting_time = time.time()
 frame_id = 0
 
+#net = cv2.dnn.readNet("char_final.weights", "char.cfg")
+
 net = cv2.dnn.readNet("char_final.weights", "char.cfg")
 
-#net = cv2.dnn.readNet("char_yolov3_final_yolov4.weights", "char.cfg")
 colors = np.random.uniform(0, 255, size=(len(woodClasses), 3))
 
 layer_names = net.getLayerNames()
@@ -62,7 +63,7 @@ def findInDetection(outs1, width, height):
 def printDetectionAndSave(confidences1, boxes, class_ids, img1):
     global x, y, w, h, confidence
     ordered_boxes, ordered_cls = orderFromLeftToRight(boxes, class_ids)
-    licensePlate = "";
+    licensePlate = ""
     for i in range(len(ordered_boxes)):
         if i in indexes:
             x, y, w, h = ordered_boxes[i]
@@ -70,13 +71,13 @@ def printDetectionAndSave(confidences1, boxes, class_ids, img1):
             label = str(woodClasses[cls_id])
             confidence = confidences1[i]
             color = colors[cls_id]
-            # print(label)
+            #print(label)
             licensePlate += label
-            cv2.rectangle(img1, (x, y), (x + w, y + h), color, 2)
+            cv2.rectangle(img1, (x, y), (x + w, y + h), color, 1)
             cv2.putText(img1, label + " " + str(round(confidence, 2)), (x, y + 30), font, 1, (255, 255, 255), 2)
             cv2.imwrite("result_character_plate.jpg", img1)
 
-    return licensePlate;
+    return licensePlate
 
 
 def orderFromLeftToRight(boxes, class_ids):
@@ -84,12 +85,25 @@ def orderFromLeftToRight(boxes, class_ids):
     ordered_cls = sorted(class_ids, key=lambda tup: tup[1])
     return ordered_boxes, ordered_cls
 
+def increase_contrast(img):
+    clahe = cv2.createCLAHE(clipLimit=3., tileGridSize=(8, 8))
+
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)  # convert from BGR to LAB color space
+    l, a, b = cv2.split(lab)  # split on 3 different channels
+
+    l2 = clahe.apply(l)  # apply CLAHE to the L-channel
+
+    lab = cv2.merge((l2, a, b))  # merge channels
+    img_modified = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)  # convert from LAB to BGR
+
+    kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+    return cv2.filter2D(img_modified, -1, kernel)
 
 def start(image):
-    img = cv2.imread(image)
+    img = increase_contrast(cv2.imread(image))
 
-    width = int(400)
-    height = int(100)
+    width = int(350)
+    height = int(90)
     dimOfResizedPlatesImage = (width, height)
 
     img = cv2.resize(img, dimOfResizedPlatesImage, interpolation=cv2.INTER_AREA)
@@ -102,10 +116,10 @@ def start(image):
     if len(licensePlate) == 0:
         licensePlate = "unidentified"
     print("numar gasit " + licensePlate)
-    #sendMess(licensePlate, image)
+    sendMess(licensePlate, image)
 
 
-# start("inmatriculare/4.jpg")
+#start("../darknetW/detectedPlatecutout_wood_withTime1622899328.041343.movconf.jpg")
 
 from characterRecognition.mimetypesUtilities import IMAGE
 
